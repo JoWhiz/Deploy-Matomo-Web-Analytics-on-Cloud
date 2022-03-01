@@ -31,6 +31,12 @@ https://www.youtube.com/watch?v=jpOM7UC_p8I"
 
 `This video will also explain how to link your public IP to an Elastic IP. If you plan on stopping and restarting your instance, at is important to link it to an Elastic IP.`
 
+Also, don't forget to change your edit your security settings,once your instance is created. Please view the image for 2 edits that you will be adding:
+
+![](./images/sec1.png)
+
+
+
 
 ### Step 1 — Logging in as root
 
@@ -55,10 +61,10 @@ I have attached a visual aid that illustrates how to connect to the root user, u
 
  You can choose which ever name suites you. I used my first name to keep it simple. We will use this new user to log-in/ssh into this account instead of using the **root** user. 
 
- This example creates a new user called **name**, but you should replace that with a username of your choice:
+ This example creates a new user called **jonelle**, but you should replace that with a username of your choice:
 
 ```bash
-# adduser name
+# adduser jonelle
 ```
 
 You will be asked a few questions, starting with the account password.
@@ -76,7 +82,7 @@ To add these privileges to our new user, we need to add the user to the **sudo*
 As **root**, run this command to add your new user to the **sudo** group (substitute the highlighted username with your new user):
 
 ```bash
-usermod -aG sudo name
+usermod -aG sudo jonelle
 ```
 
 Now, when logged in as your regular user, you can type `sudo` before commands to run them with superuser privileges.
@@ -110,7 +116,7 @@ Afterwards, we can enable the firewall by typing:
 # ufw enable
 ```
 
-Type `y`and press `ENTER`to proceed. You can see that SSH connections are still allowed by typing:
+Type `y`and press `ENTER` to proceed. You can see that SSH connections are still allowed by typing:
 
 ```bash
 # ufw status
@@ -745,6 +751,387 @@ $ docker-compose ps
 ```
 
 This command will show you information about the running containers and their state, as well as any port redirections currently in place:
+
+![](./images/dcomposeps.png)
+
+You can now access the demo application by pointing your browser to either `localhost:8000` if you are running this demo on your local machine, or `your_server_domain_or_IP:8000` if you are running this demo on a remote server.
+
+You’ll see a page like this:
+
+![](./images/dcdemopage.png)
+
+Because the shared volume you’ve set up within the `docker-compose.yml` file keeps your `app` folder files in sync with the container’s document root. If you make any changes to the `index.html` file, they will be automatically picked up by the container and thus reflected on your browser when you reload the page.
+
+In the next step, you’ll see how to manage your containerized environment with Docker Compose commands.
+
+### Step 4 — Getting Familiar with Docker Compose Commands
+
+You’ve seen how to set up a `docker-compose.yml` file and bring your environment up with `docker-compose up`. You’ll now see how to use Docker Compose commands to manage and interact with your containerized environment.
+
+To check the logs produced by your Nginx container, you can use the `logs` command:
+
+```
+$ docker-compose logs
+
+```
+
+You’ll see output similar to this:
+
+![](./images/dclogs.png)
+
+If you want to pause the environment execution without changing the current state of your containers, you can use:
+
+```
+$ docker-compose pause
+
+```
+
+```
+Output
+Pausingcompose-demo_web_1 ... done
+
+```
+
+To resume execution after issuing a pause:
+
+```
+$ docker-compose unpause
+
+```
+
+```
+Output
+Unpausing compose-demo_web_1 ... done
+
+```
+
+The `stop` command will terminate the container execution, but it won’t destroy any data associated with your containers:
+
+```
+$ docker-compose stop
+
+```
+
+```
+Output
+Stopping compose-demo_web_1 ... done
+
+```
+
+If you want to remove the containers, networks, and volumes associated with this containerized environment, use the `down` command:
+
+```
+$ docker-compose down
+
+```
+
+```
+Output
+Removingcompose-demo_web_1 ... done
+Removing networkcompose-demo_default
+```
+
+Notice that this won’t remove the base image used by Docker Compose to spin up your environment (in our case, `nginx:alpine`). This way, whenever you bring your environment up again with a `docker-compose up`, the process will be much faster since the image is already on your system.
+
+In case you want to also remove the base image from your system, you can use:
+
+![](./images/untagged.png)
+
+we’ve seen how to install Docker Compose and set up a containerized environment based on an Nginx web server image. We’ve also seen how to manage this environment using Compose commands.
+
+Finally, to enable SSL you’ll need a domain name pointed at your server’s public IP address. This should be something like `example.com` or `matomo.example.com.`
+
+I purchased a domain from Godaddy.com. However, feel free to use a host website of your choice. 
+
+After purchasing your domain, you will need to add a DNS record as shown in the picture.
+
+![](./images/DNS1.png)
+
+## Step 1 — Running Matomo and MariaDB with Docker Compose
+
+Your first step will be to create the Docker Compose configuration that will launch containers for both the Matomo app and a MariaDB database.
+
+This section will put your configuration inside a `matomo` directory in your home directory. You could also choose to work in an `/opt/matomo` directory or some other directory of your choosing.
+
+First ensure you’re in your home directory:
+
+```
+cd ~
+
+```
+
+Then create the `matomo` directory and `cd` into it:
+
+```
+mkdir matomo
+cd matomo
+
+```
+
+Now open a new blank YAML file called `docker-compose.yml`:
+
+```
+nano docker-compose.yml
+
+```
+
+This is the configuration file that the `docker-compose` software will read when bringing up your containers. Paste the following into the file:
+
+docker-compose.yml
+
+![](./images/v3.png)
+
+The file defines two `services`, one `db` service which is the MariaDB container, and an `app` service which runs the Matomo software. Both services also reference a named volume where they store some data, and the `app` service also opens up port `8080` on the loopback (`127.0.0.1`) interface, which we’ll connect to via `localhost`.
+
+Save the file and exit your text editor to continue. In `nano`, press `CTRL+O` then `ENTER` to save, then `CTRL+X` to exit.
+
+The MariaDB container needs some configuration to be passed to it through environment variables in order to function. The `docker-compose.yml` file lists these environment variables, but not all of them have associated values. That’s because it’s good practice to keep passwords out of your `docker-compose.yml` file, especially if you’ll be committing it to a Git repository or other source control system.
+
+Instead, we’ll put the necessary information in a `.env` file in the same directory, which the `docker-compose` command will automatically load when we start our containers.
+
+Open a new `.env` file with `nano`:
+
+```
+nano .env
+
+```
+
+You’ll need to fill in a user name and password, as well as a strong password for the MariaDB **root** superuser account:
+
+.env
+
+```
+MARIADB_USER=matomo
+MARIADB_PASSWORD=a_strong_password_for_user
+MARIADB_ROOT_PASSWORD=a_strong_password_for_root
+```
+
+One way of generating a strong password is to use the `openssl` command, which should be available on most any operating system. The following command will print out a random 30 character hash that you can use as a password:
+
+```
+openssl rand 30 | base64 -w 0 ; echo
+
+```
+
+When you’re done filling out the information in your `.env` file, save it and exit your text editor.
+
+You’re now ready to bring up the two containers with `docker-compose`:
+
+```
+sudo docker-compose up -d
+
+```
+
+The `up` subcommand tells `docker-compose` to start the containers (and volumes and networks) defined in the `docker-compose.yml` file, and the `-d` flag tells it to do so in the background (“daemonize”) so the command doesn’t take over your terminal. `docker-compose` will print some brief output as it starts the containers:
+
+```
+Output
+Creating matomo_db_1  ... done
+Creating matomo_app_1 ... done
+
+```
+
+When that’s done, Matomo should be running. You can test that a webserver is running at `localhost:8080` by fetching the homepage using the `curl` command:
+
+```
+curl --head http://localhost:8080
+
+```
+
+This will print out only the HTTP headers from the response:
+
+![](./images/curlcommand.png)
+
+The `200 OK` response means the Matomo server is up and running, but it’s only available on `localhost`. The highlighted `X-Matomo-Request-Id` header indicates that the server is Matomo and not something else that might be configured to listen on port 8080. Next we’ll set up Nginx to proxy public traffic to the Matomo container.
+
+## Step 2 — Installing and Configuring Nginx
+
+Putting a web server such as Nginx in front of your Matomo server can improve performance by offloading caching, compression, and static file serving to a more efficient process. We’re going to install Nginx and configure it to *[reverse proxy](https://www.digitalocean.com/community/tutorials/understanding-nginx-http-proxying-load-balancing-buffering-and-caching)* requests to Matomo, meaning it will take care of handing requests from your users to Matomo and back again. Using a non-containerized Nginx will also make it easier to add Let’s Encrypt SSL certificates in the next step.
+
+First, refresh your package list, then install Nginx using `apt`:
+
+```
+sudo apt update
+sudo apt install nginx
+
+```
+
+Allow public traffic to ports `80` and `443` (HTTP and HTTPS) using the “Nginx Full” UFW application profile:
+
+```
+sudo ufw allow "Nginx Full"
+
+```
+
+```
+Output
+Rule added
+Rule added (v6)
+
+```
+
+Next, open up a new Nginx configuration file in the `/etc/nginx/sites-available` directory. We’ll call ours `matomo.conf` but you could use a different name:
+
+```
+sudo nano /etc/nginx/sites-available/matomo.conf
+
+```
+
+Paste the following into the new configuration file, being sure to replace `your_domain_here` with the domain that you’ve configured to point to your Matomo server. This should be something like `matomo.example.com`, for instance:
+
+/etc/nginx/sites-available/matomo.conf
+```
+server {
+    listen       80;
+    listen       [::]:80;
+    server_nameyour_domain_here;
+
+    access_log  /var/log/nginx/matomo.access.log;
+    error_log   /var/log/nginx/matomo.error.log;
+
+    location / {
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-Host $host;
+      proxy_set_header X-Forwarded-Proto https;
+      proxy_pass http://localhost:8080;
+  }
+}
+
+```
+
+This configuration is HTTP-only for now, as we’ll let Certbot take care of configuring SSL in the next step. The rest of the config sets up logging locations and then passes all traffic, as well as some important proxy headers, along to `http://localhost:8080`, the Matomo container we started up in the previous step.
+
+Save and close the file, then enable the configuration by linking it into `/etc/nginx/sites-enabled/`:
+
+```
+sudo ln -s /etc/nginx/sites-available/matomo.conf /etc/nginx/sites-enabled/
+
+```
+
+Use `nginx -t` to verify that the configuration file syntax is correct:
+
+```
+sudo nginx -t
+
+```
+
+```
+Output
+nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+
+```
+
+And finally, reload the `nginx` service to pick up the new configuration:
+
+```
+sudo systemctl reload nginx
+
+```
+
+Your Matomo site should now be available on plain HTTP. Load `http://your_domain_here` (you may have to click through a security warning) and it will look like this:
+
+![](./images/matomo.png)
+
+Now that you have your site up and running over HTTP, it’s time to secure the connection with Certbot and Let’s Encrypt certificates. You should do this *before* going through Matomo’s web-based setup procedure.
+
+## Step 3 — Installing Certbot and Setting Up SSL Certificates
+
+Thanks to Certbot and the Let’s Encrypt free certificate authority, adding SSL encryption to our Matomo app will take only two commands.
+
+First, install Certbot and its Nginx plugin:
+
+```
+sudo apt install certbot python3-certbot-nginx
+
+```
+
+Next, run `certbot` in `--nginx` mode, and specify the same domain you used in the Nginx `server_name` config:
+
+```
+sudo certbot --nginx -dyour_domain_here
+```
+
+You’ll be prompted to agree to the Let’s Encrypt terms of service, and to enter an email address.
+
+Afterwards, you’ll be asked if you want to redirect all HTTP traffic to HTTPS. It’s up to you, but this is generally recommended and safe to do.
+
+After that, Let’s Encrypt will confirm your request and Certbot will download your certificate:
+
+![](./images/congrats.png)
+
+Certbot will automatically reload Nginx to pick up the new configuration and certificates. Reload your site and it should switch you over to HTTPS automatically if you chose the redirect option.
+
+Your site is now secure and it’s safe to continue with the web-based setup steps.
+
+## Step 4 — Setting Up Matomo
+
+Back in your web browser you should now have Matomo’s **Welcome!** page open via a secure `https://` connection. Now you can enter usernames and passwords safely to complete the installation process.
+
+* Click the **Next** button. You’ll be taken to the **System Check** step.
+
+* Now you’ll be on the Database Setup page.
+
+The information you fill in on this page will tell the Matomo application how to connect to the MariaDB database. You’ll need the `MARIADB_USER` and `MARIADB_PASSWORD` that you chose in Step 1. You can copy them out of your `.env` file if you need to.
+
+Fill out the first four fields:
+
+- **Database Server:** db
+- **Login:** the username you set in the `MARIADB_USER` environment variable
+- **Password:** the password you set in the `MARIADB_PASSWORD` environment variable
+- **Database Name:** matomo
+
+The defaults are fine for the remaining two fields.
+
+Click **Next** once more. You’ll get a confirmation that the database was set up correctly. Click **Next** again. You’ll then need to set up an admin user, and finally you’ll set up information about the first website you want to collect analytics for.
+
+![](./images/mcongrats.png)
+
+After all that, you should end up on step 8, a **Congratulations** page. You’re almost all done. Scroll down to the bottom and click the **Continue to Matomo** button, and you’ll be taken to the homepage:
+
+![](./images/warningpage.png)
+
+
+There will be a large warning at the top of the page. There’s a small update you’ll need to do to Matomo’s configuration file to finish up this process.
+
+Back on the command line, open up the configuration file with a text editor:
+
+
+
+```
+sudo nano matomo/config/config.ini.php
+
+```
+
+Near the top you should have a `[General]` section. Add the last three lines, highlighted below, to the end of that section:
+
+config.ini.php
+
+![](./images/general.png)
+
+These options let Matomo know that it’s safe to use port `8080`, and that it should assume it’s always being accessed over a secure connection.
+
+Save and close the configuration file, then switch back to your browser and reload the page. The error should be gone, and you’ll be presented with a login prompt.
+
+![](./images/prompt.png)
+
+Log in with the admin account you created during setup, and you should be taken to the dashboard:
+
+![](./images/dashboard.png)
+
+There is no tracking code set up, which is reflected on your websites'dashboard.  Follow the instructions to finish setting up the JavaScript code on your website to start receiving analytics data.
+
+
+
+You have successfully launched the Matamo analytics app and a MariaDB database using Docker Compose, as well as setting up an Nginx reverse proxy and secured it using Let’s Encrypt SSL certificates.
+
+
+
+
+
+
+
 
 
 
